@@ -28,11 +28,12 @@ Future<void> main() async {
     await FirebaseAppCheck.instance.activate(
       providerWeb:
           kIsWeb ? ReCaptchaV3Provider(recaptchaSiteKey) : null,
-      providerAndroid:
-          kDebugMode ? AndroidProvider.debug : AndroidProvider.playIntegrity,
+      providerAndroid: kDebugMode
+          ? const AndroidDebugProvider()
+          : const AndroidPlayIntegrityProvider(),
       providerApple: kDebugMode
-          ? AppleProvider.debug
-          : AppleProvider.appAttestWithDeviceCheckFallback,
+          ? const AppleDebugProvider()
+          : const AppleAppAttestWithDeviceCheckFallbackProvider(),
     );
     firebaseReady = true;
   } catch (error) {
