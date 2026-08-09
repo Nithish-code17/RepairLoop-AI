@@ -10,8 +10,10 @@ import '../../features/auth/data/firebase_auth_repository.dart';
 import '../../features/auth/data/profile_repository.dart';
 import '../../features/auth/domain/app_user.dart';
 import '../../features/diagnosis/data/diagnosis_image_repository.dart';
+import '../../features/diagnosis/data/firebase_ai_diagnosis_service.dart';
+import '../../features/diagnosis/data/firebase_ai_logic_diagnosis_provider.dart';
 import '../../features/diagnosis/data/diagnosis_service.dart';
-import '../../features/diagnosis/data/firebase_functions_diagnosis_service.dart';
+import '../../features/diagnosis/data/multimodal_diagnosis_provider.dart';
 import '../../features/diagnosis/domain/diagnosis.dart';
 import '../../features/lifecycle/data/lifecycle_repository.dart';
 import '../../features/lifecycle/domain/lifecycle_event.dart';
@@ -50,10 +52,15 @@ final productRepositoryProvider = Provider<ProductRepository>(
   ),
 );
 
+final multimodalDiagnosisProvider = Provider<MultimodalDiagnosisProvider>(
+  (ref) => FirebaseAiLogicDiagnosisProvider(),
+);
+
 final diagnosisServiceProvider = Provider<DiagnosisService>(
-  (ref) => FirebaseFunctionsDiagnosisService(
+  (ref) => FirebaseAiDiagnosisService(
     ref.watch(firestoreProvider),
-    ref.watch(functionsProvider),
+    FirebaseAuth.instance,
+    ref.watch(multimodalDiagnosisProvider),
   ),
 );
 
