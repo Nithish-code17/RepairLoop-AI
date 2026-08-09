@@ -1,0 +1,56 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function profile() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function hasRole(role) {
+      return signedIn() && profile().role == role;
+    }
+
+    function serviceStaff() {
+      return hasRole('technician') || hasRole('administrator');
+    }
+
+    function operationsStaff() {
+      return hasRole('manufacturer') || serviceStaff();
+    }
+
+    match /users/{userId} {
+      allow create: if signedIn()
+        && request.auth.uid == userId
+        && request.resource.data.role == 'customer';
+      allow read: if signedIn() && (request.auth.uid == userId || hasRole('administrator'));
+      allow update: if signedIn()
+        && request.auth.uid == userId
+        && request.resource.data.role == resource.data.role;
+      allow update, delete: if hasRole('administrator');
+    }
+
+    match /products/{productId} {
+      allow create: if signedIn() && request.resource.data.ownerId == request.auth.uid;
+      allow read: if signedIn() && (resource.data.ownerId == request.auth.uid || operationsStaff());
+      allow update: if signedIn() && (resource.data.ownerId == request.auth.uid || operationsStaff());
+      allow delete: if signedIn() && (resource.data.ownerId == request.auth.uid || hasRole('administrator'));
+    }
+
+    match /diagnoses/{diagnosisId} {
+      allow create: if signedIn() && request.resource.data.ownerId == request.auth.uid;
+      allow read: if signedIn() && (resource.data.ownerId == request.auth.uid || serviceStaff());
+      allow update, delete: if hasRole('administrator');
+    }
+
+    match /repairs/{repairId} {
+      allow create: if signedIn() && request.resource.data.customerId == request.auth.uid;
+      allow read: if signedIn() && (resource.data.customerId == request.auth.uid || operationsStaff());
+      allow update: if serviceStaff();
+      allow delete: if hasRole('administrator');
+    }
+  }
+}
