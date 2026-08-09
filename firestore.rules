@@ -6,51 +6,84 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function profile() {
+    function currentUser() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
     function hasRole(role) {
-      return signedIn() && profile().role == role;
+      return signedIn() && currentUser().role == role;
     }
 
-    function serviceStaff() {
-      return hasRole('technician') || hasRole('administrator');
+    function isAdmin() {
+      return hasRole('admin');
     }
 
-    function operationsStaff() {
-      return hasRole('manufacturer') || serviceStaff();
+    function isTechnician() {
+      return hasRole('technician');
+    }
+
+    function canAccessProductData(data) {
+      return signedIn() && (
+        data.ownerId == request.auth.uid ||
+        data.manufacturerId == request.auth.uid ||
+        isTechnician() ||
+        isAdmin()
+      );
+    }
+
+    function canAccessProduct(productId) {
+      return canAccessProductData(
+        get(/databases/$(database)/documents/products/$(productId)).data
+      );
     }
 
     match /users/{userId} {
-      allow create: if signedIn()
-        && request.auth.uid == userId
-        && request.resource.data.role == 'customer';
-      allow read: if signedIn() && (request.auth.uid == userId || hasRole('administrator'));
-      allow update: if signedIn()
-        && request.auth.uid == userId
-        && request.resource.data.role == resource.data.role;
-      allow update, delete: if hasRole('administrator');
+      allow read: if signedIn() && (request.auth.uid == userId || isAdmin());
+      allow create: if signedIn() && request.auth.uid == userId
+        && request.resource.data.role in ['customer', 'manufacturer']
+        && request.resource.data.keys().hasOnly([
+          'email', 'displayName', 'role', 'createdAt', 'updatedAt'
+        ]);
+      allow update: if isAdmin() || (
+        signedIn() && request.auth.uid == userId
+        && request.resource.data.role == resource.data.role
+        && request.resource.data.email == resource.data.email
+      );
+      allow delete: if false;
     }
 
     match /products/{productId} {
-      allow create: if signedIn() && request.resource.data.ownerId == request.auth.uid;
-      allow read: if signedIn() && (resource.data.ownerId == request.auth.uid || operationsStaff());
-      allow update: if signedIn() && (resource.data.ownerId == request.auth.uid || operationsStaff());
-      allow delete: if signedIn() && (resource.data.ownerId == request.auth.uid || hasRole('administrator'));
+      allow read: if canAccessProductData(resource.data);
+      allow write: if false;
+
+      match /components/{componentId} {
+        allow read: if canAccessProduct(productId);
+        allow write: if false;
+      }
     }
 
     match /diagnoses/{diagnosisId} {
-      allow create: if signedIn() && request.resource.data.ownerId == request.auth.uid;
-      allow read: if signedIn() && (resource.data.ownerId == request.auth.uid || serviceStaff());
-      allow update, delete: if hasRole('administrator');
+      allow read: if canAccessProduct(resource.data.productId);
+      allow write: if false;
     }
 
     match /repairs/{repairId} {
-      allow create: if signedIn() && request.resource.data.customerId == request.auth.uid;
-      allow read: if signedIn() && (resource.data.customerId == request.auth.uid || operationsStaff());
-      allow update: if serviceStaff();
-      allow delete: if hasRole('administrator');
+      allow read: if signedIn() && (
+        resource.data.ownerId == request.auth.uid ||
+        resource.data.manufacturerId == request.auth.uid ||
+        isTechnician() ||
+        isAdmin()
+      );
+      allow write: if false;
+    }
+
+    match /lifecycleEvents/{eventId} {
+      allow read: if canAccessProduct(resource.data.productId);
+      allow write: if false;
+    }
+
+    match /counters/{counterId} {
+      allow read, write: if false;
     }
   }
 }
