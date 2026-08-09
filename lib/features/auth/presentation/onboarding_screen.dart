@@ -16,7 +16,7 @@ class OnboardingScreen extends StatelessWidget {
               builder: (context, constraints) {
                 final wide = constraints.maxWidth >= 760;
                 final introduction = Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const _ProductBrand(),
@@ -59,12 +59,16 @@ class OnboardingScreen extends StatelessWidget {
 
                 final workflow = const _WorkflowPanel();
                 return wide
-                    ? Row(
-                        children: [
-                          Expanded(child: introduction),
-                          const SizedBox(width: 64),
-                          Expanded(child: workflow),
-                        ],
+                    ? SingleChildScrollView(
+                        padding: const EdgeInsets.symmetric(vertical: 28),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(child: introduction),
+                            const SizedBox(width: 64),
+                            Expanded(child: workflow),
+                          ],
+                        ),
                       )
                     : ListView(
                         children: [
