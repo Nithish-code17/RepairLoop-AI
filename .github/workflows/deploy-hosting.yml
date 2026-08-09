@@ -6,6 +6,7 @@ on:
     paths:
       - ".github/workflows/deploy-hosting.yml"
       - "firebase.json"
+      - "firestore.rules"
       - "lib/**"
       - "pubspec.yaml"
       - "pubspec.lock"
@@ -22,7 +23,7 @@ concurrency:
 
 jobs:
   deploy:
-    name: Build and deploy Firebase Hosting
+    name: Build and deploy Firebase Hosting and Firestore rules
     runs-on: ubuntu-latest
     environment:
       name: production
@@ -67,5 +68,9 @@ jobs:
       - name: Install Firebase CLI
         run: npm install --global firebase-tools@15.26.0
 
-      - name: Deploy to Firebase Hosting
-        run: firebase deploy --only hosting --project repairloop-ai --non-interactive
+      - name: Deploy Firebase Hosting and Firestore rules
+        run: >-
+          firebase deploy
+          --only "hosting,firestore:rules"
+          --project repairloop-ai
+          --non-interactive
