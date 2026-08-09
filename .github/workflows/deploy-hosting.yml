@@ -1,0 +1,71 @@
+name: Deploy RepairLoop Web
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/deploy-hosting.yml"
+      - "firebase.json"
+      - "lib/**"
+      - "pubspec.yaml"
+      - "pubspec.lock"
+      - "web/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: firebase-hosting-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build and deploy Firebase Hosting
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://repairloop-ai.web.app
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: projects/508246584049/locations/global/workloadIdentityPools/repairloop-github/providers/repairloop-main
+          service_account: repairloop-github-deployer@repairloop-ai.iam.gserviceaccount.com
+          project_id: repairloop-ai
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install Flutter dependencies
+        run: flutter pub get
+
+      - name: Analyze Dart source
+        run: flutter analyze
+
+      - name: Run widget tests
+        run: flutter test
+
+      - name: Build Flutter web release
+        run: >-
+          flutter build web --release
+          --dart-define=RECAPTCHA_V3_SITE_KEY=6LddE30tAAAAAL6t7LkKW6hZxcuU6IW5U-ZclBUY
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Firebase CLI
+        run: npm install --global firebase-tools@15.26.0
+
+      - name: Deploy to Firebase Hosting
+        run: firebase deploy --only hosting --project repairloop-ai --non-interactive
