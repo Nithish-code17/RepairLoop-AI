@@ -107,7 +107,7 @@ class _ProductRegistrationScreenState
                           ),
                           const SizedBox(height: 14),
                           DropdownButtonFormField<String>(
-                            value: _category,
+                            initialValue: _category,
                             decoration: const InputDecoration(labelText: 'Category'),
                             items: const [
                               'Laptop',

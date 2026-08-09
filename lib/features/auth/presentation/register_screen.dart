@@ -107,7 +107,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       ),
                       const SizedBox(height: 14),
                       DropdownButtonFormField<AppRole>(
-                        value: _role,
+                        initialValue: _role,
                         decoration: const InputDecoration(
                           labelText: 'Account type',
                           prefixIcon: Icon(Icons.badge_outlined),

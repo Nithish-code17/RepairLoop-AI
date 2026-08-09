@@ -63,7 +63,7 @@ class OnboardingScreen extends StatelessWidget {
                         children: [
                           Expanded(child: introduction),
                           const SizedBox(width: 64),
-                          const Expanded(child: workflow),
+                          Expanded(child: workflow),
                         ],
                       )
                     : ListView(

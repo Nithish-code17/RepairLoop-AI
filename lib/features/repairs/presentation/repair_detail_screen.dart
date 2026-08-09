@@ -200,7 +200,7 @@ class _RepairContentState extends ConsumerState<_RepairContent> {
                 ),
                 const SizedBox(height: 18),
                 DropdownButtonFormField<RepairStatus>(
-                  value: _status,
+                  initialValue: _status,
                   decoration: const InputDecoration(labelText: 'Repair status'),
                   items: <RepairStatus>{
                     widget.repair.status,
@@ -302,7 +302,7 @@ class _ReplacementDialogState extends State<_ReplacementDialog> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 DropdownButtonFormField<String>(
-                  value: _oldComponentId,
+                  initialValue: _oldComponentId,
                   decoration: const InputDecoration(
                     labelText: 'Component being replaced (optional)',
                   ),
@@ -320,7 +320,8 @@ class _ReplacementDialogState extends State<_ReplacementDialog> {
                           ),
                         ),
                   ],
-                  onChanged: (value) => setState(() => _oldComponentId = value),
+                  onChanged: (value) =>
+                      setState(() => _oldComponentId = value ?? ''),
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
