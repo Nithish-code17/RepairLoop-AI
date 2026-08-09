@@ -223,7 +223,26 @@ App Check enforcement is already implemented in the callable-function source
 for a future deployment. Register development debug tokens before emulator
 testing.
 
-## 7. Use Firebase emulators
+## 7. Build and deploy Flutter Web on Firebase Hosting
+
+Register the Firebase Web app with reCAPTCHA v3 in App Check before making the
+site public. Build with the public reCAPTCHA site key; keep its secret key only
+in Firebase App Check and never commit it.
+
+```bash
+flutter build web --release \
+  --dart-define=RECAPTCHA_V3_SITE_KEY=YOUR_PUBLIC_SITE_KEY
+
+firebase deploy --only hosting --project repairloop-ai
+```
+
+The Hosting configuration serves `build/web`, routes Flutter paths back to
+`index.html`, prevents the application shell from being cached, and applies
+long-lived caching only to hashed static assets. The default deployment URLs
+are `https://repairloop-ai.web.app` and
+`https://repairloop-ai.firebaseapp.com`.
+
+## 8. Use Firebase emulators
 
 ```bash
 firebase emulators:start --only auth,firestore,storage,functions
