@@ -1,0 +1,11 @@
+{
+  "name": "RepairLoop AI",
+  "short_name": "RepairLoop",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#F4F6F8",
+  "theme_color": "#142B3A",
+  "description": "Electronic-product passports, AI fault assessment, and repair history.",
+  "orientation": "portrait-primary",
+  "prefer_related_applications": false
+}
