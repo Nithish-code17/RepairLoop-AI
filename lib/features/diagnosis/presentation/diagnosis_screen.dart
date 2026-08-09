@@ -27,6 +27,7 @@ class _DiagnosisScreenState extends ConsumerState<DiagnosisScreen> {
   final _symptomsController = TextEditingController();
   XFile? _image;
   Uint8List? _imageBytes;
+  String? _imageMimeType;
   Diagnosis? _result;
   var _analyzing = false;
   var _creatingRepair = false;
@@ -44,15 +45,25 @@ class _DiagnosisScreenState extends ConsumerState<DiagnosisScreen> {
       maxWidth: 1600,
     );
     if (image == null) return;
+    final mimeType = _mimeTypeFor(image);
+    if (mimeType == null) {
+      _showMessage('Choose a JPEG or PNG image.');
+      return;
+    }
     final bytes = await image.readAsBytes();
+    if (bytes.lengthInBytes > 5 * 1024 * 1024) {
+      _showMessage('Choose an image smaller than 5 MB.');
+      return;
+    }
     if (!mounted) return;
     setState(() {
       _image = image;
       _imageBytes = bytes;
+      _imageMimeType = mimeType;
     });
   }
 
-  Future<void> _analyze() async {
+  Future<void> _analyze(Product product) async {
     if (!_formKey.currentState!.validate()) return;
     final user = ref.read(authUserProvider).asData?.value;
     if (user == null) {
@@ -64,17 +75,11 @@ class _DiagnosisScreenState extends ConsumerState<DiagnosisScreen> {
       _result = null;
     });
     try {
-      String? storagePath;
-      if (_image != null) {
-        storagePath = await ref.read(diagnosisImageRepositoryProvider).upload(
-              userId: user.uid,
-              image: _image!,
-            );
-      }
       final result = await ref.read(diagnosisServiceProvider).analyze(
-            productId: widget.productId,
+            product: product,
             symptoms: _symptomsController.text,
-            imageStoragePath: storagePath,
+            imageBytes: _imageBytes,
+            imageMimeType: _imageMimeType,
           );
       if (mounted) setState(() => _result = result);
     } catch (error) {
@@ -82,6 +87,19 @@ class _DiagnosisScreenState extends ConsumerState<DiagnosisScreen> {
     } finally {
       if (mounted) setState(() => _analyzing = false);
     }
+  }
+
+  String? _mimeTypeFor(XFile image) {
+    final declaredType = image.mimeType;
+    if (declaredType == 'image/png' || declaredType == 'image/jpeg') {
+      return declaredType;
+    }
+    final fileName = image.name.toLowerCase();
+    if (fileName.endsWith('.png')) return 'image/png';
+    if (fileName.endsWith('.jpg') || fileName.endsWith('.jpeg')) {
+      return 'image/jpeg';
+    }
+    return null;
   }
 
   Future<void> _requestRepair() async {
@@ -172,6 +190,12 @@ class _DiagnosisScreenState extends ConsumerState<DiagnosisScreen> {
                       ),
                       const SizedBox(height: 10),
                     ],
+                    Text(
+                      'The image is sent inline through Firebase AI Logic and '
+                      'is not uploaded to Firebase Storage.',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    const SizedBox(height: 10),
                     Wrap(
                       spacing: 10,
                       runSpacing: 10,
@@ -191,6 +215,7 @@ class _DiagnosisScreenState extends ConsumerState<DiagnosisScreen> {
                             onPressed: () => setState(() {
                               _image = null;
                               _imageBytes = null;
+                              _imageMimeType = null;
                             }),
                             child: const Text('Remove'),
                           ),
@@ -200,7 +225,8 @@ class _DiagnosisScreenState extends ConsumerState<DiagnosisScreen> {
                     SizedBox(
                       width: double.infinity,
                       child: FilledButton.icon(
-                        onPressed: _analyzing ? null : _analyze,
+                        onPressed:
+                            _analyzing ? null : () => _analyze(product),
                         icon: const Icon(Icons.fact_check_outlined, size: 18),
                         label: Text(
                           _analyzing ? 'Analyzing securely…' : 'Analyze symptoms',
@@ -218,6 +244,7 @@ class _DiagnosisScreenState extends ConsumerState<DiagnosisScreen> {
               diagnosis: _result!,
               creatingRepair: _creatingRepair,
               onRequestRepair: _requestRepair,
+              canRequestRepair: !_result!.id.startsWith('preview-'),
             ),
           ],
           const SizedBox(height: 28),
@@ -259,11 +286,13 @@ class _ResultCard extends StatelessWidget {
     required this.diagnosis,
     required this.creatingRepair,
     required this.onRequestRepair,
+    required this.canRequestRepair,
   });
 
   final Diagnosis diagnosis;
   final bool creatingRepair;
   final VoidCallback onRequestRepair;
+  final bool canRequestRepair;
 
   @override
   Widget build(BuildContext context) => Card(
@@ -320,6 +349,12 @@ class _ResultCard extends StatelessWidget {
                 label: 'Recommended action',
                 value: diagnosis.recommendedAction,
               ),
+              _ResultField(
+                label: 'Service guidance',
+                value: diagnosis.professionalServiceRecommended
+                    ? 'Professional service is recommended.'
+                    : 'Try the non-invasive checks first and monitor the issue.',
+              ),
               if (diagnosis.safetyWarning.isNotEmpty)
                 Container(
                   width: double.infinity,
@@ -337,16 +372,33 @@ class _ResultCard extends StatelessWidget {
                   ),
                 ),
               const SizedBox(height: 18),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: creatingRepair ? null : onRequestRepair,
-                  icon: const Icon(Icons.build_outlined, size: 18),
-                  label: Text(
-                    creatingRepair ? 'Creating repair request…' : 'Request technician repair',
+              if (canRequestRepair)
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: creatingRepair ? null : onRequestRepair,
+                    icon: const Icon(Icons.build_outlined, size: 18),
+                    label: Text(
+                      creatingRepair
+                          ? 'Creating repair request…'
+                          : 'Request technician repair',
+                    ),
+                  ),
+                )
+              else
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surfaceContainerLow,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Text(
+                    'This live Spark-plan assessment is not yet saved to the '
+                    'repair history. Technician requests remain disabled until '
+                    'the secure server workflow is deployed.',
                   ),
                 ),
-              ),
             ],
           ),
         ),

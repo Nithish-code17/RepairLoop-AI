@@ -2,7 +2,11 @@
 
 RepairLoop AI is a Flutter mobile application for persistent electronic-product passports, preliminary multimodal fault assessment, and traceable repair history.
 
-The project deliberately uses Flutter and Firebase end to end. The AI provider is called only from Firebase Cloud Functions; no private AI credential is stored in Dart, app assets, or source control.
+The project deliberately uses Flutter and Firebase end to end. On the Spark
+plan, preliminary diagnosis uses Firebase AI Logic's protected proxy with the
+Gemini Developer API. No private Gemini credential is stored in Dart, app
+assets, or source control, and the provider stays replaceable behind a Dart
+interface.
 
 ## Technology stack
 
@@ -13,6 +17,7 @@ The project deliberately uses Flutter and Firebase end to end. The AI provider i
 - Cloud Firestore
 - Firebase Storage
 - Firebase Cloud Functions (TypeScript, Node.js 22)
+- Firebase AI Logic with Gemini Developer API
 - Firebase App Check
 - Replaceable multimodal AI provider adapter
 
@@ -39,16 +44,21 @@ The project deliberately uses Flutter and Firebase end to end. The AI provider i
 Flutter application
   ├── Firebase Authentication
   ├── Cloud Firestore repositories
-  ├── Firebase Storage image uploads
-  └── Callable Cloud Functions
+  ├── Firebase AI Logic provider interface
+  │     └── Gemini Developer API adapter (replaceable)
+  ├── Firebase Storage image uploads (future Blaze path)
+  └── Callable Cloud Functions (future Blaze path)
         ├── authorization and validation
         ├── product/passport transactions
         ├── repair workflow transactions
-        └── multimodal AI provider interface
-              └── OpenAI adapter (replaceable)
+        └── optional server-side multimodal AI provider
 ```
 
-The AI contract is defined in `functions/src/ai/types.ts`. To add another provider, implement `MultimodalDiagnosisProvider` and register it in `provider-factory.ts`. Flutter does not change.
+The live Spark AI contract is
+`lib/features/diagnosis/data/multimodal_diagnosis_provider.dart`. To change the
+provider, implement `MultimodalDiagnosisProvider` and update its Riverpod
+binding. The Cloud Functions source retains a separate server adapter for a
+future billing-enabled deployment.
 
 ## Firebase collections
 
@@ -76,12 +86,15 @@ RepairLoop AI currently stays on Firebase's no-cost Spark plan. Email/Password
 Authentication and Cloud Firestore are enabled in the real project. No billing
 account is attached.
 
-The repository keeps the Firebase Storage rules and Cloud Functions source so
-the complete architecture can be developed and tested with the Firebase
-emulators. Storage uploads, deployed Cloud Functions and live multimodal AI are
-not enabled in the hosted backend because those features require a billing-enabled
-Firebase project. The Flutter app must not call an AI provider directly or
-contain a private AI key as a workaround.
+The repository keeps Firebase Storage rules and Cloud Functions source so the
+complete transactional architecture can be developed with the Firebase
+emulators. Storage uploads and deployed Cloud Functions are not enabled because
+they require a billing-enabled Firebase project.
+
+Live preliminary diagnosis instead uses Firebase AI Logic with the Gemini
+Developer API. The selected image is sent inline through Firebase's protected
+proxy and is not uploaded to Storage. The result stays advisory and is not
+written to lifecycle history until the server workflow is deployed.
 
 ## 1. Generate platform projects
 
@@ -113,13 +126,15 @@ configuration files:
 flutterfire configure --project=repairloop-ai
 ```
 
-The following Firebase services are enabled on Spark:
+The following Firebase services are used on Spark:
 
 1. Authentication → Email/Password
 2. Firestore Database
+3. Firebase AI Logic → Gemini Developer API
 
 Storage and Cloud Functions are intentionally not deployed on the current free
-plan. App Check configuration can remain in the app for later activation.
+plan. App Check protects Firebase AI Logic in production and uses registered
+debug tokens during local development.
 
 For App Check, register Play Integrity for Android and App Attest/DeviceCheck for Apple. Register reCAPTCHA v3 if Flutter web is used.
 
@@ -149,9 +164,27 @@ flutter run -d chrome \
   --dart-define=RECAPTCHA_V3_SITE_KEY=...
 ```
 
-Firebase client configuration identifies a Firebase project; it is not the private multimodal AI credential. The AI key must remain in Secret Manager.
+The AI model defaults to the stable Spark-compatible `gemini-3.6-flash`. It can
+be changed without modifying the provider implementation:
 
-## 4. Develop the secure AI backend locally
+```bash
+flutter run --dart-define=FIREBASE_AI_MODEL=gemini-3.6-flash
+```
+
+Firebase client configuration identifies a Firebase project; it is not a
+private Gemini credential. Firebase AI Logic authorizes model requests through
+its managed proxy and App Check.
+
+## 4. Enable the Spark AI service
+
+In Firebase Console, open **AI Services → AI Logic**, select **Gemini Developer
+API**, enable the required APIs, and enforce App Check. Do not select the Agent
+Platform Gemini API because it requires billing.
+
+For local Android/iOS development, run a debug build and register the App Check
+debug token shown in the device logs. Never commit a debug token.
+
+## 5. Develop the optional server backend locally
 
 Install and compile Cloud Functions:
 
@@ -179,7 +212,7 @@ AI_BASE_URL=https://api.openai.com/v1
 
 These are non-secret parameters. Change the provider adapter or configured model without placing credentials in Flutter.
 
-## 5. Deploy the Spark-compatible Firebase resources
+## 6. Deploy the Spark-compatible Firebase resources
 
 ```bash
 firebase deploy --only firestore:rules,firestore:indexes
@@ -190,7 +223,7 @@ App Check enforcement is already implemented in the callable-function source
 for a future deployment. Register development debug tokens before emulator
 testing.
 
-## 6. Use Firebase emulators
+## 7. Use Firebase emulators
 
 ```bash
 firebase emulators:start --only auth,firestore,storage,functions
@@ -206,9 +239,15 @@ while keeping the real Firebase project on Spark.
 - Users cannot self-register as technician or administrator.
 - Client code cannot write products, diagnoses, repairs, lifecycle events or counters directly.
 - Cloud Functions validate authentication, roles, ownership and state transitions.
-- Diagnosis images are restricted by owner path, MIME type and size.
+- Future Storage-backed diagnosis images are restricted by owner path, MIME
+  type and size.
 - The Cloud Function fetches product context and repair history server-side.
-- Only concise user-facing reasoning is stored; private chain-of-thought is neither requested nor returned.
+- Spark diagnosis sends only the selected image, written symptoms and limited
+  product context through Firebase AI Logic.
+- A deterministic client safety policy escalates reports of smoke, sparks,
+  swelling, severe heat, high voltage and related hazards.
+- Only concise user-facing reasoning is requested or returned; private
+  chain-of-thought is never requested.
 - Hazard keywords trigger a deterministic safety override in addition to the AI model prompt.
 - `AI_API_KEY` is a bound Firebase Secret and never sent to Flutter.
 
