@@ -31,6 +31,19 @@ jobs:
       - name: Run widget tests
         run: flutter test
 
+      - name: Build Flutter web release
+        run: >-
+          flutter build web --release
+          --dart-define=RECAPTCHA_V3_SITE_KEY=6LddE30tAAAAAL6t7LkKW6hZxcuU6IW5U-ZclBUY
+
+      - name: Upload Flutter web release
+        uses: actions/upload-artifact@v4
+        with:
+          name: repairloop-web
+          path: build/web
+          if-no-files-found: error
+          retention-days: 7
+
   functions:
     name: Cloud Functions build
     runs-on: ubuntu-latest
