@@ -68,23 +68,34 @@ The AI contract is defined in `functions/src/ai/types.ts`. To add another provid
 - Node.js 22
 - Firebase CLI
 - FlutterFire CLI
-- A Firebase project on the Blaze plan (required for deployed Cloud Functions and external AI calls)
+- Firebase project `repairloop-ai` on the no-cost Spark plan
+
+## Current Firebase plan
+
+RepairLoop AI currently stays on Firebase's no-cost Spark plan. Email/Password
+Authentication and Cloud Firestore are enabled in the real project. No billing
+account is attached.
+
+The repository keeps the Firebase Storage rules and Cloud Functions source so
+the complete architecture can be developed and tested with the Firebase
+emulators. Storage uploads, deployed Cloud Functions and live multimodal AI are
+not enabled in the hosted backend because those features require a billing-enabled
+Firebase project. The Flutter app must not call an AI provider directly or
+contain a private AI key as a workaround.
 
 ## 1. Generate platform projects
 
 This repository contains the application source. If Android/iOS platform folders are not present, run:
 
 ```bash
-flutter create . --platforms=android,ios,web
+flutter create . --org com.nithishsarwin --platforms=android,ios,web
 ```
 
-Use your own reverse-domain organization when required:
+After generation, make sure both the Android application ID and Apple bundle ID
+are exactly `com.nithishsarwin.repairloopai`. The Firebase Console already has
+Android, Apple and Web apps registered under those identifiers.
 
-```bash
-flutter create . --org com.yourname --platforms=android,ios,web
-```
-
-## 2. Connect Firebase
+## 2. Firebase connection
 
 ```bash
 dart pub global activate flutterfire_cli
@@ -92,19 +103,23 @@ firebase login
 cp .firebaserc.example .firebaserc
 ```
 
-Replace `your-firebase-project-id` in `.firebaserc`, then run:
+The application is already bound to Firebase project `repairloop-ai` through
+its public client options in
+`lib/core/config/runtime_firebase_options.dart`. Run FlutterFire configuration
+after creating native platform folders if you also want the conventional native
+configuration files:
 
 ```bash
-flutterfire configure
+flutterfire configure --project=repairloop-ai
 ```
 
-Enable these Firebase services in the console:
+The following Firebase services are enabled on Spark:
 
 1. Authentication → Email/Password
 2. Firestore Database
-3. Storage
-4. Cloud Functions
-5. App Check
+
+Storage and Cloud Functions are intentionally not deployed on the current free
+plan. App Check configuration can remain in the app for later activation.
 
 For App Check, register Play Integrity for Android and App Attest/DeviceCheck for Apple. Register reCAPTCHA v3 if Flutter web is used.
 
@@ -116,7 +131,10 @@ flutter analyze
 flutter test
 ```
 
-Android and iOS can use the native files created by `flutterfire configure`. The app also supports Firebase identifiers supplied with `--dart-define` for automated builds; see `lib/core/config/runtime_firebase_options.dart`.
+Android and iOS can use the native files created by `flutterfire configure`.
+The app also supports Firebase identifiers supplied with `--dart-define` for
+automated builds or a separate Firebase environment; these override the checked
+in public client defaults.
 
 For web, supply the Firebase values and reCAPTCHA site key:
 
@@ -133,7 +151,7 @@ flutter run -d chrome \
 
 Firebase client configuration identifies a Firebase project; it is not the private multimodal AI credential. The AI key must remain in Secret Manager.
 
-## 4. Configure the secure AI backend
+## 4. Develop the secure AI backend locally
 
 Install and compile Cloud Functions:
 
@@ -144,7 +162,8 @@ npm run build
 cd ..
 ```
 
-Store the private AI key in Firebase Secret Manager:
+For a future billing-enabled deployment, store the private AI key in Firebase
+Secret Manager:
 
 ```bash
 firebase functions:secrets:set AI_API_KEY
@@ -160,13 +179,16 @@ AI_BASE_URL=https://api.openai.com/v1
 
 These are non-secret parameters. Change the provider adapter or configured model without placing credentials in Flutter.
 
-## 5. Deploy Firebase resources
+## 5. Deploy the Spark-compatible Firebase resources
 
 ```bash
-firebase deploy --only firestore:rules,firestore:indexes,storage,functions
+firebase deploy --only firestore:rules,firestore:indexes
 ```
 
-App Check enforcement is enabled on callable functions. Register development debug tokens before testing locally, then monitor App Check metrics before enabling console-level enforcement for Authentication, Firestore and Storage.
+Do not deploy Storage or Cloud Functions while the project remains on Spark.
+App Check enforcement is already implemented in the callable-function source
+for a future deployment. Register development debug tokens before emulator
+testing.
 
 ## 6. Use Firebase emulators
 
@@ -174,7 +196,10 @@ App Check enforcement is enabled on callable functions. Register development deb
 firebase emulators:start --only auth,firestore,storage,functions
 ```
 
-The Flutter repository providers are kept behind interfaces so emulator wiring and fake repositories can be added without changing feature screens.
+The Flutter repository providers are kept behind interfaces so emulator wiring
+and fake repositories can be added without changing feature screens. Use the
+emulators for Storage, Cloud Functions and multimodal-AI workflow development
+while keeping the real Firebase project on Spark.
 
 ## Security decisions
 
@@ -189,4 +214,5 @@ The Flutter repository providers are kept behind interfaces so emulator wiring a
 
 ## Current validation
 
-The TypeScript Cloud Functions compile with strict mode. Flutter and Dart are not installed in the current build environment, so `flutter analyze`, widget tests and device camera testing must be run after Flutter is installed locally or in CI.
+GitHub Actions runs Flutter analysis, widget tests, the strict TypeScript Cloud
+Functions build and the backend dependency audit for pull requests.
