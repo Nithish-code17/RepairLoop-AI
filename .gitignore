@@ -1,7 +1,27 @@
-node_modules/
-.next/
-out/
-dist/
-.env*
-!.env.example
-npm-debug.log*
+# Flutter and Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+coverage/
+
+# Editors and operating systems
+.idea/
+.vscode/
+*.iml
+.DS_Store
+
+# Firebase local state and secrets
+.firebase/
+.firebaserc
+firebase-debug.log
+*-debug.log
+functions/.env
+functions/.env.*
+!functions/.env.example
+
+# Native Firebase project files are configured locally.
+android/app/google-services.json
+ios/Runner/GoogleService-Info.plist
+macos/Runner/GoogleService-Info.plist

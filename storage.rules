@@ -2,12 +2,42 @@ rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
-    match /users/{userId}/products/{productId}/{allPaths=**} {
-      allow read: if request.auth != null && request.auth.uid == userId;
-      allow write: if request.auth != null
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function userRole() {
+      return firestore.get(
+        /databases/(default)/documents/users/$(request.auth.uid)
+      ).data.role;
+    }
+
+    function privilegedServiceUser() {
+      return signedIn() && userRole() in ['technician', 'admin'];
+    }
+
+    match /diagnosis-images/{userId}/{fileName} {
+      allow create: if signedIn()
         && request.auth.uid == userId
         && request.resource.size < 10 * 1024 * 1024
         && request.resource.contentType.matches('image/.*');
+      allow read: if signedIn() && (
+        request.auth.uid == userId || privilegedServiceUser()
+      );
+      allow update, delete: if signedIn() && request.auth.uid == userId;
+    }
+
+    match /product-images/{manufacturerId}/{fileName} {
+      allow create, update: if signedIn()
+        && request.auth.uid == manufacturerId
+        && request.resource.size < 10 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+      allow read: if signedIn();
+      allow delete: if signedIn() && request.auth.uid == manufacturerId;
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
     }
   }
 }
