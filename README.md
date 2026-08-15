@@ -269,8 +269,3 @@ while keeping the real Firebase project on Spark.
   chain-of-thought is never requested.
 - Hazard keywords trigger a deterministic safety override in addition to the AI model prompt.
 - `AI_API_KEY` is a bound Firebase Secret and never sent to Flutter.
-
-## Current validation
-
-GitHub Actions runs Flutter analysis, widget tests, the strict TypeScript Cloud
-Functions build and the backend dependency audit for pull requests.
